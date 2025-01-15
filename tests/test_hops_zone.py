@@ -185,3 +185,160 @@ class TadoZoneTestCase(unittest.TestCase):
         for room in devices_and_rooms['rooms']:
             result = self.tado_client.reset_open_window(zone=room)
             assert isinstance(result, dict)
+
+    def test_get_zone_state(self):
+        """Test get_zone_state method"""
+        self.set_fixture("home_1234/tadox.heating.auto_mode.json")
+        zone_state = self.tado_client.get_zone_state(1)
+        assert zone_state.current_temp == 24.00
+
+    def test_get_zone_states(self):
+        """Test get_zone_states method"""
+        self.set_get_devices_fixture("tadox/rooms_and_devices.json")
+        zone_states = self.tado_client.get_zone_states()
+        assert zone_states["rooms"][0]["roomName"] == "Room 1"
+
+    def test_get_state(self):
+        """Test get_state method"""
+        self.set_fixture("home_1234/tadox.heating.auto_mode.json")
+        state = self.tado_client.get_state(1)
+        assert state["sensorDataPoints"]["insideTemperature"]["value"] == 24.00
+
+    def test_get_capabilities(self):
+        """Test get_capabilities method"""
+        with self.assertRaises(Exception):
+            self.tado_client.get_capabilities(1)
+
+    def test_get_climate(self):
+        """Test get_climate method"""
+        self.set_fixture("home_1234/tadox.heating.auto_mode.json")
+        climate = self.tado_client.get_climate(1)
+        assert climate["temperature"] == 24.00
+
+    def test_set_timetable(self):
+        """Test set_timetable method"""
+        with self.assertRaises(Exception):
+            self.tado_client.set_timetable(1, None)
+
+    def test_get_schedule(self):
+        """Test get_schedule method"""
+        self.set_fixture("home_1234/tadox.heating.auto_mode.json")
+        schedule = self.tado_client.get_schedule(1, None)
+        assert schedule["sensorDataPoints"]["insideTemperature"]["value"] == 24.00
+
+    def test_set_schedule(self):
+        """Test set_schedule method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.set_schedule(1, None, None, {"start": "00:00", "end": "07:05"})
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "rooms/1/schedule")
+            self.assertEqual(request.action, "PUT")
+            self.assertEqual(request.payload, {"start": "00:00", "end": "07:05"})
+            self.assertTrue(response["success"])
+
+    def test_reset_zone_overlay(self):
+        """Test reset_zone_overlay method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.reset_zone_overlay(1)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "rooms/1/resumeSchedule")
+            self.assertEqual(request.action, "PUT")
+            self.assertTrue(response["success"])
+
+    def test_set_zone_overlay(self):
+        """Test set_zone_overlay method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.set_zone_overlay(1, "MANUAL", 22.0, 3600)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "rooms/1/manualControl")
+            self.assertEqual(request.action, "PUT")
+            self.assertEqual(request.payload, {
+                "setting": {"type": "HEATING", "power": "ON", "temperature": {"value": 22.0, "valueRaw": 22.0, "precision": 0.1}},
+                "termination": {"type": "MANUAL", "durationInSeconds": 3600},
+            })
+            self.assertTrue(response["success"])
+
+    def test_get_open_window_detected(self):
+        """Test get_open_window_detected method"""
+        self.set_fixture("home_1234/tadox.heating.auto_mode.json")
+        open_window_detected = self.tado_client.get_open_window_detected(1)
+        assert open_window_detected["openWindowDetected"] is False
+
+    def test_set_open_window(self):
+        """Test set_open_window method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.set_open_window(1)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "rooms/1/openWindow")
+            self.assertEqual(request.action, "PUT")
+            self.assertTrue(response["success"])
+
+    def test_reset_open_window(self):
+        """Test reset_open_window method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.reset_open_window(1)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "rooms/1/openWindow")
+            self.assertEqual(request.action, "DELETE")
+            self.assertTrue(response["success"])
+
+    def test_get_device_info(self):
+        """Test get_device_info method"""
+        self.set_get_devices_fixture("tadox/rooms_and_devices.json")
+        device_info = self.tado_client.get_device_info("VA1234567890")
+        assert device_info["rooms"][0]["devices"][0]["serialNumber"] == "VA1234567890"
+
+    def test_set_temp_offset(self):
+        """Test set_temp_offset method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.set_temp_offset("VA1234567890", 2.0)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "roomsAndDevices/devices/VA1234567890")
+            self.assertEqual(request.action, "PUT")
+            self.assertEqual(request.payload, {"temperatureOffset": 2.0})
+            self.assertTrue(response["success"])
+
+    def test_set_child_lock(self):
+        """Test set_child_lock method"""
+        with mock.patch(
+            "PyTado.http.Http.request",
+            return_value={"success": True},
+        ) as mock_request:
+            response = self.tado_client.set_child_lock("VA1234567890", True)
+            mock_request.assert_called_once()
+            args, _ = mock_request.call_args
+            request = args[0]
+            self.assertEqual(request.command, "roomsAndDevices/devices/VA1234567890")
+            self.assertEqual(request.action, "PUT")
+            self.assertEqual(request.payload, {"childLockEnabled": True})
+            self.assertTrue(response["success"])

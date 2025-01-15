@@ -10,7 +10,7 @@ from PyTado.exceptions import TadoException, TadoWrongCredentialsException
 
 from . import common
 
-from PyTado.http import Http
+from PyTado.http import Http, TadoRequest, Action, Domain, Mode
 
 
 class TestHttp(unittest.TestCase):
@@ -183,3 +183,127 @@ class TestHttp(unittest.TestCase):
             instance._refresh_token()
 
         assert refresh_token.call_count == 1
+
+    @responses.activate
+    def test_request_success(self):
+        instance = Http(
+            username="test_user",
+            password="test_pass",
+            debug=True,
+        )
+
+        request = TadoRequest(
+            command="zones",
+            action=Action.GET,
+            domain=Domain.HOME,
+        )
+
+        responses.add(
+            responses.GET,
+            "https://my.tado.com/api/v2/homes/1234/zones",
+            json={"zones": []},
+            status=200,
+        )
+
+        response = instance.request(request)
+        self.assertEqual(response, {"zones": []})
+
+    @responses.activate
+    def test_request_failure(self):
+        instance = Http(
+            username="test_user",
+            password="test_pass",
+            debug=True,
+        )
+
+        request = TadoRequest(
+            command="zones",
+            action=Action.GET,
+            domain=Domain.HOME,
+        )
+
+        responses.add(
+            responses.GET,
+            "https://my.tado.com/api/v2/homes/1234/zones",
+            json={"error": "not found"},
+            status=404,
+        )
+
+        with self.assertRaises(TadoException):
+            instance.request(request)
+
+    @responses.activate
+    def test_request_with_payload(self):
+        instance = Http(
+            username="test_user",
+            password="test_pass",
+            debug=True,
+        )
+
+        request = TadoRequest(
+            command="zones",
+            action=Action.SET,
+            domain=Domain.HOME,
+            payload={"name": "New Zone"},
+        )
+
+        responses.add(
+            responses.POST,
+            "https://my.tado.com/api/v2/homes/1234/zones",
+            json={"id": 1, "name": "New Zone"},
+            status=200,
+        )
+
+        response = instance.request(request)
+        self.assertEqual(response, {"id": 1, "name": "New Zone"})
+
+    @responses.activate
+    def test_request_with_params(self):
+        instance = Http(
+            username="test_user",
+            password="test_pass",
+            debug=True,
+        )
+
+        request = TadoRequest(
+            command="zones",
+            action=Action.GET,
+            domain=Domain.HOME,
+            params={"type": "HEATING"},
+        )
+
+        responses.add(
+            responses.GET,
+            "https://my.tado.com/api/v2/homes/1234/zones?type=HEATING",
+            json={"zones": []},
+            status=200,
+        )
+
+        response = instance.request(request)
+        self.assertEqual(response, {"zones": []})
+
+    @responses.activate
+    def test_request_with_plain_mode(self):
+        instance = Http(
+            username="test_user",
+            password="test_pass",
+            debug=True,
+        )
+
+        request = TadoRequest(
+            command="zones",
+            action=Action.SET,
+            domain=Domain.HOME,
+            payload="plain text payload",
+            mode=Mode.PLAIN,
+        )
+
+        responses.add(
+            responses.POST,
+            "https://my.tado.com/api/v2/homes/1234/zones",
+            body="plain text response",
+            status=200,
+        )
+
+        response = instance.request(request)
+        self.assertEqual(response, "plain text response")
